@@ -56,9 +56,41 @@ unsigned int relTypePos(char *name);
 entity *findEnt(char *name);
 
 int main() {
+    //freopen("/home/alessandro/Scaricati/batch1.1.in","r",stdin);
     char cmd[7];
     scanf("%s", cmd);
     while(strcmp(cmd, "end")!=0){
+        if(strcmp(cmd, "addent")==0){
+            char name[NAMELENGTH];
+            scanf(" \"%[^\"]\"", name);
+            addEnt(name);
+        }
+        else if(strcmp(cmd, "addrel")==0){
+            char from[NAMELENGTH];
+            char to[NAMELENGTH];
+            char type[NAMELENGTH];
+            scanf(" \"%[^\"]\"", from);
+            scanf(" \"%[^\"]\"", to);
+            scanf(" \"%[^\"]\"", type);
+            addRel(from, to, type);
+        }
+        else if(strcmp(cmd, "report")==0){
+            report();
+        }
+        else if(strcmp(cmd, "delent")==0){
+            char name[NAMELENGTH];
+            scanf(" \"%[^\"]\"", name);
+            delEnt(name);
+        }
+        else if(strcmp(cmd, "delrel")==0){
+            char from[NAMELENGTH];
+            char to[NAMELENGTH];
+            char type[NAMELENGTH];
+            scanf(" \"%[^\"]\"", from);
+            scanf(" \"%[^\"]\"", to);
+            scanf(" \"%[^\"]\"", type);
+            delRel(from, to, type);
+        }
         scanf("%s",cmd);
     }
     return 0;
@@ -135,7 +167,7 @@ unsigned int hashRelPos(char *from, char *to, char *relName){
     return hash % RELBLOCKLENGTH;
 }
 
-unsigned int relTypePos(char *name){
+unsigned int relTypePos(char *name){ //Done
     unsigned int hashValue = hashRelType(name);
     if(strcmp(relTypeTable[hashValue].name, name)==0){
         return hashValue;
@@ -148,6 +180,7 @@ unsigned int relTypePos(char *name){
         if(orderQueue==NULL){
             orderQueue=malloc(sizeof(relTOrder));
             orderQueue->arrayPos = hashValue;
+            orderQueue->chained = NULL;
         }
         else if(strcmp(name, relTypeTable[orderQueue->arrayPos].name)<0){
             relTOrder *support = orderQueue;
@@ -221,7 +254,7 @@ unsigned int relTypePos(char *name){
     }
 }
 
-entity *findEnt(char *name){
+entity *findEnt(char *name){ //DONE
     unsigned int hashValue = hashEntity(name);
     if(entityTable[hashValue].name[0]=='\0'){
         return NULL;
@@ -262,6 +295,9 @@ void addRel(char *from, char *to, char *relName){
     else if(fromPtr->outgoingTable[typePos][relPos].entName[0]=='\0'){
         strcpy(fromPtr->outgoingTable[typePos][relPos].entName, to);
     }
+    else if(strcmp(fromPtr->outgoingTable[typePos][relPos].entName, to)==0){
+        return;
+    }
     else{
         relation *iterator = fromPtr->outgoingTable[typePos][relPos].chained;
         relation *prev = &fromPtr->outgoingTable[typePos][relPos];
@@ -293,7 +329,42 @@ void addRel(char *from, char *to, char *relName){
         ptr->chained=next;
         strcpy(ptr->entName, from);
     }
+    toPtr->occ[typePos]++;//aggiorno numero relazioni
     //Gestione max
+    if(relTypeTable[typePos].needCorrection==0){ //se il massimo deve essere già aggiornato, non ha senso perdere tempo
+        if(toPtr->occ[typePos]>relTypeTable[typePos].max){
+            while(relTypeTable[typePos].pointerToList!=NULL){ //cancello i massimi già esistenti
+                maxEntity *temp=relTypeTable[typePos].pointerToList->chained;
+                free(relTypeTable[typePos].pointerToList);
+                relTypeTable[typePos].pointerToList = temp;
+            }
+            relTypeTable[typePos].pointerToList=malloc(sizeof(maxEntity)); //aggiungo il nuovo massimo
+            relTypeTable[typePos].pointerToList->chained=NULL;
+            relTypeTable[typePos].pointerToList->ptrTo=toPtr;
+            relTypeTable[typePos].max=toPtr->occ[typePos];
+        }else if(toPtr->occ[typePos]==relTypeTable[typePos].max){
+            if(strcmp(toPtr->name, relTypeTable[typePos].pointerToList->ptrTo->name)<0){
+                maxEntity *next = relTypeTable[typePos].pointerToList;
+                relTypeTable[typePos].pointerToList=malloc(sizeof(maxEntity));
+                relTypeTable[typePos].pointerToList->chained = next;
+                relTypeTable[typePos].pointerToList->ptrTo=toPtr;
+            }else{
+                maxEntity *list = relTypeTable[typePos].pointerToList->chained;
+                maxEntity *prev = relTypeTable[typePos].pointerToList;
+                for(;list!=NULL; list=list->chained){
+                    if(strcmp(toPtr->name,list->ptrTo->name)<0){
+                        break;
+                    }
+                    prev=list;
+                }
+                prev->chained=malloc(sizeof(maxEntity));
+                prev=prev->chained;
+                prev->chained=list;
+                prev->ptrTo=toPtr;
+            }
+        }
+    }
+    return;
 }
 
 void delRel(char *from, char *to, char *relName){
@@ -313,7 +384,7 @@ void delRel(char *from, char *to, char *relName){
 
 }
 
-void addEnt(char *name){
+void addEnt(char *name){ //DOne
     unsigned int hashValue = hashEntity(name);
     if(entityTable[hashValue].name[0]=='\0'){
         strcpy(entityTable[hashValue].name, name);
@@ -353,5 +424,117 @@ void delEnt(char *name){
 }
 
 void report(){
-
+    relTOrder *iterator = orderQueue;
+    int none = 1;
+    for(;iterator!=NULL; iterator=iterator->chained){
+        if(relTypeTable[iterator->arrayPos].needCorrection==0){
+            if(relTypeTable[iterator->arrayPos].max>0){
+                if(none==0){
+                    printf(" ");
+                }
+                none = 0;
+                printf("\"%s\" ", relTypeTable[iterator->arrayPos].name);
+                maxEntity *maxIterator = relTypeTable[iterator->arrayPos].pointerToList;
+                for(;maxIterator!=NULL; maxIterator=maxIterator->chained){
+                    printf("\"%s\" ", maxIterator->ptrTo->name);
+                }
+                printf("%d;", relTypeTable[iterator->arrayPos].max);
+            }
+        }else{
+            //se needCorrection
+            relTypeTable[iterator->arrayPos].max=0;
+            relTypeTable[iterator->arrayPos].needCorrection=0;
+            for(int i=0; i<ENTITYTABLELENGTH; i++){
+                if(entityTable[i].name[0]!='\0' && entityTable[i].occ[iterator->arrayPos]>0){  //se esiste l'elemento in tabella e ha relazioni
+                    if(entityTable[i].occ[iterator->arrayPos]>relTypeTable[iterator->arrayPos].max){ //se l'elemento ha relazioni più del massimo attuale
+                        while(relTypeTable[iterator->arrayPos].pointerToList!=NULL){ //cancello i massimi già esistenti
+                            maxEntity *temp=relTypeTable[iterator->arrayPos].pointerToList->chained;
+                            free(relTypeTable[iterator->arrayPos].pointerToList);
+                            relTypeTable[iterator->arrayPos].pointerToList = temp;
+                        }
+                        relTypeTable[iterator->arrayPos].pointerToList=malloc(sizeof(maxEntity)); //aggiungo il nuovo massimo
+                        relTypeTable[iterator->arrayPos].pointerToList->chained=NULL;
+                        relTypeTable[iterator->arrayPos].pointerToList->ptrTo=&entityTable[i];
+                        relTypeTable[iterator->arrayPos].max=entityTable[i].occ[iterator->arrayPos];
+                    }else if(entityTable[i].occ[iterator->arrayPos]==relTypeTable[iterator->arrayPos].max){ //se L'elemento ha tante relazioni quanto il massimo
+                        if(strcmp(entityTable[i].name, relTypeTable[iterator->arrayPos].pointerToList->ptrTo->name)<0){
+                            maxEntity *next = relTypeTable[iterator->arrayPos].pointerToList;
+                            relTypeTable[iterator->arrayPos].pointerToList=malloc(sizeof(maxEntity));
+                            relTypeTable[iterator->arrayPos].pointerToList->chained = next;
+                            relTypeTable[iterator->arrayPos].pointerToList->ptrTo=&entityTable[i];
+                        }
+                        else {
+                            maxEntity *list = relTypeTable[iterator->arrayPos].pointerToList->chained;
+                            maxEntity *prev = relTypeTable[iterator->arrayPos].pointerToList;
+                            for (; list != NULL; list = list->chained) {
+                                if (strcmp(entityTable[i].name, list->ptrTo->name) < 0) {
+                                    break;
+                                }
+                                prev = list;
+                            }
+                            prev->chained = malloc(sizeof(maxEntity));
+                            prev = prev->chained;
+                            prev->chained = list;
+                            prev->ptrTo = &entityTable[i];
+                        }
+                    }
+                }
+                if(entityTable[i].chained!=NULL){ //se esistono seguiti
+                    entity *entIterator = entityTable[i].chained;
+                    for(; entIterator!=NULL; entIterator=entIterator->chained){
+                        if(entIterator->occ[iterator->arrayPos]>0){
+                            if(entIterator->occ[iterator->arrayPos]>relTypeTable[iterator->arrayPos].max){ //se l'elemento ha relazioni più del massimo attuale
+                                while(relTypeTable[iterator->arrayPos].pointerToList!=NULL){ //cancello i massimi già esistenti
+                                    maxEntity *temp=relTypeTable[iterator->arrayPos].pointerToList->chained;
+                                    free(relTypeTable[iterator->arrayPos].pointerToList);
+                                    relTypeTable[iterator->arrayPos].pointerToList = temp;
+                                }
+                                relTypeTable[iterator->arrayPos].pointerToList=malloc(sizeof(maxEntity)); //aggiungo il nuovo massimo
+                                relTypeTable[iterator->arrayPos].pointerToList->ptrTo=entIterator;
+                                relTypeTable[iterator->arrayPos].pointerToList->chained=NULL;
+                                relTypeTable[iterator->arrayPos].max=entIterator->occ[iterator->arrayPos];
+                            }else if(entIterator->occ[iterator->arrayPos]==relTypeTable[iterator->arrayPos].max){ //se L'elemento ha tante relazioni quanto il massimo
+                                if(strcmp(entIterator->name, relTypeTable[iterator->arrayPos].pointerToList->ptrTo->name)<0){
+                                    maxEntity *next = relTypeTable[iterator->arrayPos].pointerToList;
+                                    relTypeTable[iterator->arrayPos].pointerToList=malloc(sizeof(maxEntity));
+                                    relTypeTable[iterator->arrayPos].pointerToList->chained = next;
+                                    relTypeTable[iterator->arrayPos].pointerToList->ptrTo=entIterator;
+                                }else {
+                                    maxEntity *list = relTypeTable[iterator->arrayPos].pointerToList->chained;
+                                    maxEntity *prev = relTypeTable[iterator->arrayPos].pointerToList;
+                                    for (; list != NULL; list = list->chained) {
+                                        if (strcmp(entIterator->name, list->ptrTo->name) < 0) {
+                                            break;
+                                        }
+                                        prev = list;
+                                    }
+                                    prev->chained = malloc(sizeof(maxEntity));
+                                    prev = prev->chained;
+                                    prev->chained = list;
+                                    prev->ptrTo = entIterator;
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            //Una volta ordinato stampo
+            if(relTypeTable[iterator->arrayPos].max>0){
+                if(none==0){
+                    printf(" ");
+                }
+                none = 0;
+                printf("\"%s\" ", relTypeTable[iterator->arrayPos].name);
+                maxEntity *maxIterator = relTypeTable[iterator->arrayPos].pointerToList;
+                for(;maxIterator!=NULL; maxIterator=maxIterator->chained){
+                    printf("\"%s\" ", maxIterator->ptrTo->name);
+                }
+                printf("%d;", relTypeTable[iterator->arrayPos].max);
+            }
+        }
+    }
+    if(none ==1){
+        printf("none");
+    }
+    printf("\n");
 }
