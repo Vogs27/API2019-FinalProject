@@ -506,7 +506,6 @@ void delEnt(char *name){
     if(entToBeDel==NULL){
         return;
     }
-
 }
 
 void report(){
