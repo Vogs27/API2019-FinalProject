@@ -410,6 +410,7 @@ void delRel(char *from, char *to, char *relName){
             putRel(toBeDel);
         }
     }else{
+        //TODO
         relation *iterator = fromPtr->outgoingTable[typePos][relPos].chained;
         relation *prev = &fromPtr->outgoingTable[typePos][relPos];
         for(;iterator!=NULL; iterator=iterator->chained){
@@ -432,6 +433,7 @@ void delRel(char *from, char *to, char *relName){
             putRel(toBeDel);
         }
     }else{
+        //todo
         relation *iterator = toPtr->incomingTable[typePos][relPos].chained;
         relation *prev = &toPtr->incomingTable[typePos][relPos];
         for(;iterator!=NULL; iterator=iterator->chained){
@@ -520,6 +522,7 @@ void delEnt(char *name){
                 }
             }
         }
+
         for(ordQueue = orderQueue; ordQueue!=NULL; ordQueue=ordQueue->chained){
             if(entityTable[hashValue].occ[ordQueue->arrayPos]==relTypeTable[ordQueue->arrayPos].max){ //controllo che l'entità che sto cancellando non sia massimo da qualche parte
                 if(relTypeTable[ordQueue->arrayPos].pointerToList->chained==NULL) {
@@ -547,12 +550,12 @@ void delEnt(char *name){
         }
         for(ordQueue = orderQueue; ordQueue!=NULL; ordQueue = ordQueue->chained){ //per ogni tipo di relazione esistente
             if(entityTable[hashValue].outgoingTable[ordQueue->arrayPos]!=NULL){ //cancello le relazioni uscenti
-                relation *outgoingRelBlockTable=entityTable[hashValue].outgoingTable[orderQueue->arrayPos];
+                //relation *outgoingRelBlockTable=entityTable[hashValue].outgoingTable[orderQueue->arrayPos];
                 for(int i=0; i<RELBLOCKLENGTH; i++){ //scorro ogni blocco e se trovo qualcosa, libero
-                    if(outgoingRelBlockTable[i].entName[0]!='\0'){
+                    if(entityTable[hashValue].outgoingTable[ordQueue->arrayPos][i].entName[0]!='\0'){ //TODO qui da nullptr
                         //se il primo elemento non è nullo, libero quello nella tabella entrante dell'altro elemento
-                        unsigned int relPos = hashRelPos(entityTable[hashValue].name, outgoingRelBlockTable[i].entName, relTypeTable[ordQueue->arrayPos].name);
-                        entity *incomingEnt = findEnt(outgoingRelBlockTable[i].entName);
+                        unsigned int relPos = hashRelPos(entityTable[hashValue].name, entityTable[hashValue].outgoingTable[orderQueue->arrayPos][i].entName, relTypeTable[ordQueue->arrayPos].name);
+                        entity *incomingEnt = findEnt(entityTable[hashValue].outgoingTable[orderQueue->arrayPos][i].entName);
                         if(strcmp(incomingEnt->incomingTable[ordQueue->arrayPos][relPos].entName, entityTable[hashValue].name)==0){ //se è il primo nella lista
                             if (incomingEnt->incomingTable[ordQueue->arrayPos][relPos].chained == NULL) { //se non ha seguiti
                                 incomingEnt->incomingTable[ordQueue->arrayPos][relPos].entName[0] = '\0';
@@ -563,6 +566,8 @@ void delEnt(char *name){
                                 putRel(temp);
                             }
                         }else{ //se non è il primo elemento delle relazioni entranti, ciclo
+                            //TODO
+
                             relation *iterator = incomingEnt->incomingTable[ordQueue->arrayPos][relPos].chained;
                             relation *prev = &incomingEnt->incomingTable[ordQueue->arrayPos][relPos];
                             for(;iterator!=NULL; iterator=iterator->chained){
@@ -603,8 +608,8 @@ void delEnt(char *name){
                         incomingEnt->occ[ordQueue->arrayPos]--;
                     }
                     //se c'è un seguito
-                    if(outgoingRelBlockTable[i].chained!=NULL) {
-                        relation *relIterator = outgoingRelBlockTable[i].chained;
+                    if(entityTable[hashValue].outgoingTable[ordQueue->arrayPos][i].chained!=NULL) {
+                        relation *relIterator = entityTable[hashValue].outgoingTable[orderQueue->arrayPos][i].chained;
                         while (relIterator != NULL) { //libero tutti i blocchi del seguito
                             unsigned int relPos = hashRelPos(entityTable[hashValue].name, relIterator->entName,
                                                              relTypeTable[ordQueue->arrayPos].name);
@@ -622,6 +627,7 @@ void delEnt(char *name){
                                     putRel(temp);
                                 }
                             } else { //se non è il primo elemento delle relazioni entranti, ciclo
+                                //TODO
                                 relation *iterator = incomingEnt->incomingTable[ordQueue->arrayPos][relPos].chained;
                                 relation *prev = &incomingEnt->incomingTable[ordQueue->arrayPos][relPos];
                                 for (; iterator != NULL; iterator = iterator->chained) {
@@ -665,7 +671,8 @@ void delEnt(char *name){
                         }
                     }
                 }
-                //free(entityTable[hashValue].outgoingTable[ordQueue->arrayPos]);
+                free(entityTable[hashValue].outgoingTable[ordQueue->arrayPos]);
+                entityTable[hashValue].outgoingTable[ordQueue->arrayPos]=NULL;
             }
             if(entityTable[hashValue].incomingTable[ordQueue->arrayPos]!=NULL){ //cancello le relazioni entranti
                 for(int i=0; i<RELBLOCKLENGTH; i++){ //scansiono tutta la tabella delle relaziono entranti
@@ -682,6 +689,7 @@ void delEnt(char *name){
                                 putRel(temp);
                             }
                         }else{ //se non è il primo elemento delle relazioni entranti, ciclo
+                            //TODO
                             relation *iterator = outgoingEnt->outgoingTable[ordQueue->arrayPos][relPos].chained;
                             relation *prev = &outgoingEnt->outgoingTable[ordQueue->arrayPos][relPos];
                             for(;iterator!=NULL; iterator=iterator->chained){
@@ -708,7 +716,8 @@ void delEnt(char *name){
                                     outgoingEnt->outgoingTable[ordQueue->arrayPos][relPos].chained=temp->chained;
                                     putRel(temp);
                                 }
-                            }else{ //se non è il primo elemento delle relazioni entranti, ciclo
+                            }else{//se non è il primo elemento delle relazioni entranti, ciclo
+                                //TODO
                                 relation *iterator = outgoingEnt->outgoingTable[ordQueue->arrayPos][relPos].chained;
                                 relation *prev = &outgoingEnt->outgoingTable[ordQueue->arrayPos][relPos];
                                 for(;iterator!=NULL; iterator=iterator->chained){
@@ -726,13 +735,13 @@ void delEnt(char *name){
                         }
                     }
                 }
-              //  free(entityTable[hashValue].incomingTable[ordQueue->arrayPos]);
+                free(entityTable[hashValue].incomingTable[ordQueue->arrayPos]);
+                entityTable[hashValue].incomingTable[ordQueue->arrayPos]=NULL;
             }
         }
         //elimino l'entità sovvrascrivendola
         if(entityTable[hashValue].chained==NULL){
             entityTable[hashValue].name[0]='\0';
-
             return;
         }else{
             entity *toDelete = entityTable[hashValue].chained;
