@@ -80,7 +80,7 @@ int main() {
         else if(strcmp(cmd, "delent")==0){
             char name[NAMELENGTH];
             scanf(" \"%[^\"]\"", name);
-            delEnt(name);
+            //delEnt(name);
         }
         else if(strcmp(cmd, "delrel")==0){
             char from[NAMELENGTH];
@@ -89,7 +89,7 @@ int main() {
             scanf(" \"%[^\"]\"", from);
             scanf(" \"%[^\"]\"", to);
             scanf(" \"%[^\"]\"", type);
-            delRel(from, to, type);
+            //delRel(from, to, type);
         }
         scanf("%s",cmd);
     }
@@ -440,28 +440,30 @@ void delRel(char *from, char *to, char *relName){
         }
     }
     //verifico i massimi
-    if(toPtr->occ[typePos]==relTypeTable[typePos].max){
-       if(relTypeTable[typePos].pointerToList->chained==NULL){
-           relTypeTable[typePos].needCorrection=1;
-       }else{
-           if(relTypeTable[typePos].pointerToList->ptrTo==toPtr){
-              maxEntity *temp = relTypeTable[typePos].pointerToList->chained;
-              free(relTypeTable[typePos].pointerToList);
-              relTypeTable[typePos].pointerToList=temp;
-           }else{
-               maxEntity *iterator = relTypeTable[typePos].pointerToList->chained;
-               maxEntity *prev = relTypeTable[typePos].pointerToList;
-               for(; iterator!=NULL; iterator=iterator->chained){
-                   if(iterator->ptrTo==toPtr){
-                       maxEntity *temp = iterator->chained;
-                       free(iterator);
-                       prev->chained=temp;
-                       break;
-                   }
-                   prev=iterator;
-               }
-           }
-       }
+    if(relTypeTable[typePos].needCorrection==0) {
+        if (toPtr->occ[typePos] == relTypeTable[typePos].max) {
+            if (relTypeTable[typePos].pointerToList->chained == NULL) {
+                relTypeTable[typePos].needCorrection = 1;
+            } else {
+                if (relTypeTable[typePos].pointerToList->ptrTo == toPtr) {
+                    maxEntity *temp = relTypeTable[typePos].pointerToList->chained;
+                    free(relTypeTable[typePos].pointerToList);
+                    relTypeTable[typePos].pointerToList = temp;
+                } else {
+                    maxEntity *iterator = relTypeTable[typePos].pointerToList->chained;
+                    maxEntity *prev = relTypeTable[typePos].pointerToList;
+                    for (; iterator != NULL; iterator = iterator->chained) {
+                        if (iterator->ptrTo == toPtr) {
+                            maxEntity *temp = iterator->chained;
+                            free(iterator);
+                            prev->chained = temp;
+                            break;
+                        }
+                        prev = iterator;
+                    }
+                }
+            }
+        }
     }
     toPtr->occ[typePos]--;
 }
@@ -502,9 +504,251 @@ void addEnt(char *name){ //DOne
 }
 
 void delEnt(char *name){
-    entity *entToBeDel = findEnt(name);
-    if(entToBeDel==NULL){
+    unsigned int hashValue = hashEntity(name);
+    if(entityTable[hashValue].name[0]=='\0'){ //se non esiste l'elemento, non posso cancellarlo
         return;
+    }else if(strcmp(entityTable[hashValue].name, name)==0){ //se esiste l'entità ed è la prima
+        relTOrder *ordQueue = orderQueue;
+        if(entityTable[hashValue].chained!=NULL){//se non è l'unica entità, devo stare attento a non corrompere quella concatenata
+            for(;ordQueue!=NULL; ordQueue=ordQueue->chained){
+                if(entityTable[hashValue].chained->occ[ordQueue->arrayPos]==relTypeTable[ordQueue->arrayPos].max){
+                    relTypeTable[ordQueue->arrayPos].needCorrection=1;
+                }
+            }
+        }
+        for(ordQueue = orderQueue; ordQueue!=NULL; ordQueue=ordQueue->chained){
+            if(entityTable[hashValue].occ[ordQueue->arrayPos]==relTypeTable[ordQueue->arrayPos].max){ //controllo che l'entità che sto cancellando non sia massimo da qualche parte
+                if(relTypeTable[ordQueue->arrayPos].pointerToList->chained==NULL) {
+                    relTypeTable[ordQueue->arrayPos].needCorrection = 1;
+                }else{
+                    if (relTypeTable[ordQueue->arrayPos].pointerToList->ptrTo == &entityTable[hashValue]) {
+                        maxEntity *temp = relTypeTable[ordQueue->arrayPos].pointerToList->chained;
+                        free(relTypeTable[ordQueue->arrayPos].pointerToList);
+                        relTypeTable[ordQueue->arrayPos].pointerToList = temp;
+                    } else {
+                        maxEntity *iterator = relTypeTable[ordQueue->arrayPos].pointerToList->chained;
+                        maxEntity *prev = relTypeTable[ordQueue->arrayPos].pointerToList;
+                        for (; iterator != NULL; iterator = iterator->chained) {
+                            if (iterator->ptrTo == &entityTable[hashValue]) {
+                                maxEntity *temp = iterator->chained;
+                                free(iterator);
+                                prev->chained = temp;
+                                break;
+                            }
+                            prev = iterator;
+                        }
+                    }
+                }
+            }
+        }
+        for(ordQueue = orderQueue; ordQueue!=NULL; ordQueue = ordQueue->chained){ //per ogni tipo di relazione esistente
+            if(entityTable[hashValue].outgoingTable[ordQueue->arrayPos]!=NULL){ //cancello le relazioni uscenti
+                relation *outgoingRelBlockTable=entityTable[hashValue].outgoingTable[orderQueue->arrayPos];
+                for(int i=0; i<RELBLOCKLENGTH; i++){ //scorro ogni blocco e se trovo qualcosa, libero
+                    if(outgoingRelBlockTable[i].entName[0]!='\0'){
+                        //se il primo elemento non è nullo, libero quello nella tabella entrante dell'altro elemento
+                        unsigned int relPos = hashRelPos(entityTable[hashValue].name, outgoingRelBlockTable[i].entName, relTypeTable[ordQueue->arrayPos].name);
+                        entity *incomingEnt = findEnt(outgoingRelBlockTable[i].entName);
+                        if(strcmp(incomingEnt->incomingTable[ordQueue->arrayPos][relPos].entName, entityTable[hashValue].name)==0){ //se è il primo nella lista
+                            if (incomingEnt->incomingTable[ordQueue->arrayPos][relPos].chained == NULL) { //se non ha seguiti
+                                incomingEnt->incomingTable[ordQueue->arrayPos][relPos].entName[0] = '\0';
+                            }else{
+                                relation *temp=incomingEnt->incomingTable[ordQueue->arrayPos][relPos].chained;
+                                strcpy(incomingEnt->incomingTable[ordQueue->arrayPos][relPos].entName, temp->entName);
+                                incomingEnt->incomingTable[ordQueue->arrayPos][relPos].chained=temp->chained;
+                                putRel(temp);
+                            }
+                        }else{ //se non è il primo elemento delle relazioni entranti, ciclo
+                            relation *iterator = incomingEnt->incomingTable[ordQueue->arrayPos][relPos].chained;
+                            relation *prev = &incomingEnt->incomingTable[ordQueue->arrayPos][relPos];
+                            for(;iterator!=NULL; iterator=iterator->chained){
+                                if(strcmp(iterator->entName, entityTable[hashValue].name)==0){
+                                    prev->chained=iterator->chained;
+                                    putRel(iterator);
+                                    break;
+                                }
+                                prev=iterator;
+                            }
+                        }
+                        //verifico i massimi
+                        if(relTypeTable[ordQueue->arrayPos].needCorrection==0){
+                            if (incomingEnt->occ[ordQueue->arrayPos] == relTypeTable[ordQueue->arrayPos].max) {
+                                if (relTypeTable[ordQueue->arrayPos].pointerToList->chained == NULL) {
+                                    relTypeTable[ordQueue->arrayPos].needCorrection = 1;
+                                } else {
+                                    if (relTypeTable[ordQueue->arrayPos].pointerToList->ptrTo == incomingEnt) {
+                                        maxEntity *temp = relTypeTable[ordQueue->arrayPos].pointerToList->chained;
+                                        free(relTypeTable[ordQueue->arrayPos].pointerToList);
+                                        relTypeTable[ordQueue->arrayPos].pointerToList = temp;
+                                    } else {
+                                        maxEntity *iterator = relTypeTable[ordQueue->arrayPos].pointerToList->chained;
+                                        maxEntity *prev = relTypeTable[ordQueue->arrayPos].pointerToList;
+                                        for (; iterator != NULL; iterator = iterator->chained) {
+                                            if (iterator->ptrTo == incomingEnt) {
+                                                maxEntity *temp = iterator->chained;
+                                                free(iterator);
+                                                prev->chained = temp;
+                                                break;
+                                            }
+                                            prev = iterator;
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                        incomingEnt->occ[ordQueue->arrayPos]--;
+                    }
+                    //se c'è un seguito
+                    if(outgoingRelBlockTable[i].chained!=NULL){
+                        relation *relIterator = outgoingRelBlockTable[i].chained;
+                        while(relIterator!=NULL){ //libero tutti i blocchi del seguito
+                            unsigned int relPos = hashRelPos(entityTable[hashValue].name, relIterator->entName, relTypeTable[ordQueue->arrayPos].name);
+                            entity *incomingEnt = findEnt(relIterator->entName);
+                            if(strcmp(incomingEnt->incomingTable[ordQueue->arrayPos][relPos].entName, entityTable[hashValue].name)==0){ //se è il primo nella lista
+                                if (incomingEnt->incomingTable[ordQueue->arrayPos][relPos].chained == NULL) { //se non ha seguiti
+                                    incomingEnt->incomingTable[ordQueue->arrayPos][relPos].entName[0] = '\0';
+                                }else{
+                                    relation *temp=incomingEnt->incomingTable[ordQueue->arrayPos][relPos].chained;
+                                    strcpy(incomingEnt->incomingTable[ordQueue->arrayPos][relPos].entName, temp->entName);
+                                    incomingEnt->incomingTable[ordQueue->arrayPos][relPos].chained=temp->chained;
+                                    putRel(temp);
+                                }
+                            }else{ //se non è il primo elemento delle relazioni entranti, ciclo
+                                relation *iterator = incomingEnt->incomingTable[ordQueue->arrayPos][relPos].chained;
+                                relation *prev = &incomingEnt->incomingTable[ordQueue->arrayPos][relPos];
+                                for(;iterator!=NULL; iterator=iterator->chained){
+                                    if(strcmp(iterator->entName, entityTable[hashValue].name)==0){
+                                        prev->chained=iterator->chained;
+                                        putRel(iterator);
+                                        break;
+                                    }
+                                    prev=iterator;
+                                }
+                            }
+                            //verifico i massimi
+                            if(relTypeTable[ordQueue->arrayPos].needCorrection==0){
+                                if (incomingEnt->occ[ordQueue->arrayPos] == relTypeTable[ordQueue->arrayPos].max) {
+                                    if (relTypeTable[ordQueue->arrayPos].pointerToList->chained == NULL) {
+                                        relTypeTable[ordQueue->arrayPos].needCorrection = 1;
+                                    } else {
+                                        if (relTypeTable[ordQueue->arrayPos].pointerToList->ptrTo == incomingEnt) {
+                                            maxEntity *temp = relTypeTable[ordQueue->arrayPos].pointerToList->chained;
+                                            free(relTypeTable[ordQueue->arrayPos].pointerToList);
+                                            relTypeTable[ordQueue->arrayPos].pointerToList = temp;
+                                        } else {
+                                            maxEntity *iterator = relTypeTable[ordQueue->arrayPos].pointerToList->chained;
+                                            maxEntity *prev = relTypeTable[ordQueue->arrayPos].pointerToList;
+                                            for (; iterator != NULL; iterator = iterator->chained) {
+                                                if (iterator->ptrTo == incomingEnt) {
+                                                    maxEntity *temp = iterator->chained;
+                                                    free(iterator);
+                                                    prev->chained = temp;
+                                                    break;
+                                                }
+                                                prev = iterator;
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                            relation *tempRelIterator=relIterator->chained;
+                            putRel(relIterator);
+                            relIterator=tempRelIterator;
+                        }
+                    }
+                }
+            }
+            if(entityTable[hashValue].incomingTable[ordQueue->arrayPos]!=NULL){ //cancello le relazioni entranti
+                for(int i=0; i<RELBLOCKLENGTH; i++){ //scansiono tutta la tabella delle relaziono entranti
+                    if(entityTable[hashValue].incomingTable[ordQueue->arrayPos][i].entName[0]!='\0'){
+                        entity *outgoingEnt = findEnt(entityTable[hashValue].incomingTable[ordQueue->arrayPos][i].entName);
+                        unsigned int relPos = hashRelPos(entityTable[hashValue].incomingTable[ordQueue->arrayPos][i].entName ,entityTable[hashValue].name, relTypeTable[ordQueue->arrayPos].name);
+                        if(strcmp(outgoingEnt->outgoingTable[ordQueue->arrayPos][relPos].entName, entityTable[hashValue].name)==0){ //se è il primo nella lista
+                            if (outgoingEnt->outgoingTable[ordQueue->arrayPos][relPos].chained == NULL) { //se non ha seguiti
+                                outgoingEnt->outgoingTable[ordQueue->arrayPos][relPos].entName[0] = '\0';
+                            }else{
+                                relation *temp=outgoingEnt->outgoingTable[ordQueue->arrayPos][relPos].chained;
+                                strcpy(outgoingEnt->outgoingTable[ordQueue->arrayPos][relPos].entName, temp->entName);
+                                outgoingEnt->outgoingTable[ordQueue->arrayPos][relPos].chained=temp->chained;
+                                putRel(temp);
+                            }
+                        }else{ //se non è il primo elemento delle relazioni entranti, ciclo
+                            relation *iterator = outgoingEnt->outgoingTable[ordQueue->arrayPos][relPos].chained;
+                            relation *prev = &outgoingEnt->outgoingTable[ordQueue->arrayPos][relPos];
+                            for(;iterator!=NULL; iterator=iterator->chained){
+                                if(strcmp(iterator->entName, entityTable[hashValue].name)==0){
+                                    prev->chained=iterator->chained;
+                                    putRel(iterator);
+                                    break;
+                                }
+                                prev=iterator;
+                            }
+                        }
+                    }
+                    if(entityTable[hashValue].incomingTable[ordQueue->arrayPos][i].chained!=NULL){
+                        relation *relIterator = entityTable[hashValue].incomingTable[ordQueue->arrayPos][i].chained;
+                        while(relIterator!=NULL){ //libero tutti i blocchi del seguito
+                            unsigned int relPos = hashRelPos(relIterator->entName, entityTable[hashValue].name, relTypeTable[ordQueue->arrayPos].name);
+                            entity *outgoingEnt = findEnt(relIterator->entName);
+                            if(strcmp(outgoingEnt->outgoingTable[ordQueue->arrayPos][relPos].entName, entityTable[hashValue].name)==0){ //se è il primo nella lista
+                                if (outgoingEnt->outgoingTable[ordQueue->arrayPos][relPos].chained == NULL) { //se non ha seguiti
+                                    outgoingEnt->outgoingTable[ordQueue->arrayPos][relPos].entName[0] = '\0';
+                                }else{
+                                    relation *temp=outgoingEnt->outgoingTable[ordQueue->arrayPos][relPos].chained;
+                                    strcpy(outgoingEnt->outgoingTable[ordQueue->arrayPos][relPos].entName, temp->entName);
+                                    outgoingEnt->outgoingTable[ordQueue->arrayPos][relPos].chained=temp->chained;
+                                    putRel(temp);
+                                }
+                            }else{ //se non è il primo elemento delle relazioni entranti, ciclo
+                                relation *iterator = outgoingEnt->outgoingTable[ordQueue->arrayPos][relPos].chained;
+                                relation *prev = &outgoingEnt->outgoingTable[ordQueue->arrayPos][relPos];
+                                for(;iterator!=NULL; iterator=iterator->chained){
+                                    if(strcmp(iterator->entName, entityTable[hashValue].name)==0){
+                                        prev->chained=iterator->chained;
+                                        putRel(iterator);
+                                        break;
+                                    }
+                                    prev=iterator;
+                                }
+                            }
+                            relation *tempRelIterator=relIterator->chained;
+                            putRel(relIterator);
+                            relIterator=tempRelIterator;
+                        }
+                    }
+                }
+            }
+        }
+        //elimino l'entità sovvrascrivendola
+        if(entityTable[hashValue].chained==NULL){
+            entityTable[hashValue].name[0]='\0';
+            free(entityTable[hashValue].incomingTable);
+            free(entityTable[hashValue].outgoingTable);
+            return;
+        }else{
+            entity *toDelete = entityTable[hashValue].chained;
+            strcpy(entityTable[hashValue].name, toDelete->name);
+            free(entityTable[hashValue].incomingTable);
+            free(entityTable[hashValue].outgoingTable);
+            for(int i=0; i<RELTYPENUMBER ; i++){
+                entityTable[hashValue].incomingTable[i]=toDelete->incomingTable[i];
+                entityTable[hashValue].outgoingTable[i]=toDelete->outgoingTable[i];
+                entityTable[hashValue].occ[i]=toDelete->occ[i];
+            }
+            putEnt(toDelete);
+        }
+
+    }else{ //se l'entità è nella coda
+        entity *iterator = entityTable[hashValue].chained;
+        for(; iterator!=NULL; iterator=iterator->chained){
+            if(strcmp(iterator->name, name)==0){
+                break;
+            }
+        }
+        if(iterator==NULL){ //se sono uscito dall'if perchè non ho trovato l'entità, esco
+            return;
+        }
+        //ALTIMENTI CANCELLO L'entità
     }
 }
 
