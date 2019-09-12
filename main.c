@@ -572,26 +572,236 @@ void delEnt(char *name){
    if(strcmp(entityTable[entityPos].name, name)==0){ //se è nella tabella
        for(relTOrder *reltypeOrd = orderQueue; reltypeOrd!=NULL; reltypeOrd=reltypeOrd->chained){
            if(entityTable[entityPos].outgoingTable[reltypeOrd->arrayPos]!=NULL) {  //cancello le relazioni uscenti
-               for (int hashRelPos = 0; hashRelPos < RELBLOCKLENGTH; hashRelPos++) {
-                   if (entityTable[entityPos].outgoingTable[reltypeOrd->arrayPos][hashRelPos].entName[0] != '\0') {
+               for (int hashRel = 0; hashRel < RELBLOCKLENGTH; hashRel++) {
+                   if (entityTable[entityPos].outgoingTable[reltypeOrd->arrayPos][hashRel].entName[0] != '\0') {//se esiste una relazione uscente da eliminare
                        //elimino la prima
-                       entity *firstIncomingEnt = findEnt(
-                               entityTable[entityPos].outgoingTable[reltypeOrd->arrayPos][hashRelPos].entName);
+                       entity *firstIncomingEnt = findEnt(entityTable[entityPos].outgoingTable[reltypeOrd->arrayPos][hashRel].entName);
 
-                       if (strcmp(firstIncomingEnt->incomingTable[reltypeOrd->arrayPos][hashRelPos].entName,
+                       if (strcmp(firstIncomingEnt->incomingTable[reltypeOrd->arrayPos][hashRel].entName,
                                   entityTable[entityPos].name) == 0) {  //se la relazione da eliminare è all'inizio
-                           if (firstIncomingEnt->incomingTable[reltypeOrd->arrayPos][hashRelPos].chained == NULL) {
-                               firstIncomingEnt->incomingTable[reltypeOrd->arrayPos][hashRelPos].entName[0] = '\0';
+                           if (firstIncomingEnt->incomingTable[reltypeOrd->arrayPos][hashRel].chained == NULL) {
+                               firstIncomingEnt->incomingTable[reltypeOrd->arrayPos][hashRel].entName[0] = '\0';
                            } else {
-                               relation *tBr = firstIncomingEnt->incomingTable[reltypeOrd->arrayPos][hashRelPos].chained;
-                               strcpy(firstIncomingEnt->incomingTable[reltypeOrd->arrayPos][hashRelPos].entName,
+                               relation *tBr = firstIncomingEnt->incomingTable[reltypeOrd->arrayPos][hashRel].chained;
+                               strcpy(firstIncomingEnt->incomingTable[reltypeOrd->arrayPos][hashRel].entName,
                                       tBr->entName);
-                               firstIncomingEnt->incomingTable[reltypeOrd->arrayPos][hashRelPos].chained = tBr->chained;
+                               firstIncomingEnt->incomingTable[reltypeOrd->arrayPos][hashRel].chained = tBr->chained;
                                putRel(tBr);
                            }
                        } else {
-                           relation *prev = &firstIncomingEnt->incomingTable[reltypeOrd->arrayPos][hashRelPos];
-                           relation *act = firstIncomingEnt->incomingTable[reltypeOrd->arrayPos][hashRelPos].chained;
+                           relation *prev = &firstIncomingEnt->incomingTable[reltypeOrd->arrayPos][hashRel];
+                           relation *act = firstIncomingEnt->incomingTable[reltypeOrd->arrayPos][hashRel].chained;
+                           for (; act != NULL; act = act->chained) {
+                               if (strcmp(act->entName, entityTable[entityPos].name) == 0) {
+                                   prev->chained = act->chained;
+                                   putRel(act);
+                                   break;
+                               }
+                               prev = act;
+                           }
+                       }
+                       //TODO gestione dei massimi
+                       if(relTypeTable[reltypeOrd->arrayPos].needCorrection==0){
+                           if(relTypeTable[reltypeOrd->arrayPos].max==firstIncomingEnt->occ[reltypeOrd->arrayPos]){
+                               if(relTypeTable[reltypeOrd->arrayPos].pointerToList->chained==NULL){
+                                   relTypeTable[reltypeOrd->arrayPos].needCorrection=1;
+                               }
+                               else{
+                                   if(relTypeTable[reltypeOrd->arrayPos].pointerToList->ptrTo == firstIncomingEnt){
+                                       maxEntity *tbd = relTypeTable[reltypeOrd->arrayPos].pointerToList;
+                                       relTypeTable[reltypeOrd->arrayPos].pointerToList= relTypeTable[reltypeOrd->arrayPos].pointerToList->chained;
+                                       free(tbd);
+                                   }else{
+                                       maxEntity *iterator = relTypeTable[reltypeOrd->arrayPos].pointerToList->chained;
+                                       maxEntity *prev = relTypeTable[reltypeOrd->arrayPos].pointerToList;
+                                       for (; iterator != NULL; iterator = iterator->chained) {
+                                           if (iterator->ptrTo == firstIncomingEnt) {
+                                               maxEntity *temp = iterator->chained;
+                                               free(iterator);
+                                               prev->chained = temp;
+                                               break;
+                                           }
+                                           prev = iterator;
+                                       }
+                                   }
+                               }
+                           }
+                       }
+                       //elimino le relazioni concatenate
+                       relation *iterator = entityTable[entityPos].outgoingTable[reltypeOrd->arrayPos][hashRel].chained;
+                       while (iterator != NULL) {
+                           entity *incomingEnt = findEnt(iterator->entName);
+                           if (strcmp(incomingEnt->incomingTable[reltypeOrd->arrayPos][hashRel].entName,
+                                      entityTable[entityPos].name) == 0) { //se la relazione da eliminare è all'inizio
+                               if (incomingEnt->incomingTable[reltypeOrd->arrayPos][hashRel].chained == NULL) {
+                                   incomingEnt->incomingTable[reltypeOrd->arrayPos][hashRel].entName[0] = '\0';
+                               } else {
+                                   relation *tBr = incomingEnt->incomingTable[reltypeOrd->arrayPos][hashRel].chained;
+                                   strcpy(incomingEnt->incomingTable[reltypeOrd->arrayPos][hashRel].entName,
+                                          tBr->entName);
+                                   incomingEnt->incomingTable[reltypeOrd->arrayPos][hashRel].chained = tBr->chained;
+                                   putRel(tBr);
+                               }
+                           } else {
+                               relation *prev = &incomingEnt->incomingTable[reltypeOrd->arrayPos][hashRel];
+                               relation *act = incomingEnt->incomingTable[reltypeOrd->arrayPos][hashRel].chained;
+                               for (; act != NULL; act = act->chained) {
+                                   if (strcmp(act->entName, entityTable[entityPos].name) == 0) {
+                                       prev->chained = act->chained;
+                                       putRel(act);
+                                       break;
+                                   }
+                                   prev = act;
+                               }
+                           }
+                           iterator = iterator->chained;
+                           //TODO gestione dei massimi
+                           if(relTypeTable[reltypeOrd->arrayPos].needCorrection==0){
+                               if(relTypeTable[reltypeOrd->arrayPos].max==incomingEnt->occ[reltypeOrd->arrayPos]){
+                                   if(relTypeTable[reltypeOrd->arrayPos].pointerToList->chained==NULL){
+                                       relTypeTable[reltypeOrd->arrayPos].needCorrection=1;
+                                   }
+                                   else{
+                                       if(relTypeTable[reltypeOrd->arrayPos].pointerToList->ptrTo == incomingEnt){
+                                           maxEntity *tbd = relTypeTable[reltypeOrd->arrayPos].pointerToList;
+                                           relTypeTable[reltypeOrd->arrayPos].pointerToList= relTypeTable[reltypeOrd->arrayPos].pointerToList->chained;
+                                           free(tbd);
+                                       }else{
+                                           maxEntity *iteratorBis = relTypeTable[reltypeOrd->arrayPos].pointerToList->chained;
+                                           maxEntity *prev = relTypeTable[reltypeOrd->arrayPos].pointerToList;
+                                           for (; iterator != NULL; iterator = iterator->chained) {
+                                               if (iteratorBis->ptrTo == incomingEnt) {
+                                                   maxEntity *tempBis = iteratorBis->chained;
+                                                   free(iterator);
+                                                   prev->chained = tempBis;
+                                                   break;
+                                               }
+                                               prev = iteratorBis;
+                                           }
+                                       }
+                                   }
+                               }
+                           }
+                       }
+                   }
+               }
+               free(entityTable[entityPos].outgoingTable[reltypeOrd->arrayPos]);
+               entityTable[entityPos].outgoingTable[reltypeOrd->arrayPos]=NULL;
+           }//finito con le rel uscenti
+           if(entityTable[entityPos].incomingTable[reltypeOrd->arrayPos]!=NULL) {  //cancello le relazioni entranti
+               for (int hashRel = 0; hashRel < RELBLOCKLENGTH; hashRel++) {
+                   if(entityTable[entityPos].incomingTable[reltypeOrd->arrayPos][hashRel].entName[0]!='\0'){
+                       entity *firstOutgoingEnt = findEnt(entityTable[entityPos].incomingTable[reltypeOrd->arrayPos][hashRel].entName);
+                       unsigned int relPos = hashRelPos(entityTable[entityPos].incomingTable[reltypeOrd->arrayPos][hashRel].entName, entityTable[entityPos].name, relTypeTable[reltypeOrd->arrayPos].name);
+                       if(strcmp(firstOutgoingEnt->outgoingTable[reltypeOrd->arrayPos][relPos].entName, entityTable[entityPos].name)==0){
+                           if(firstOutgoingEnt->outgoingTable[reltypeOrd->arrayPos][relPos].chained==NULL){
+                               firstOutgoingEnt->outgoingTable[reltypeOrd->arrayPos][relPos].entName[0]='\0';
+                           }else{
+                               relation *tBr = firstOutgoingEnt->outgoingTable[reltypeOrd->arrayPos][relPos].chained;
+                               strcpy(firstOutgoingEnt->outgoingTable[reltypeOrd->arrayPos][relPos].entName, tBr->entName);
+                               firstOutgoingEnt->outgoingTable[reltypeOrd->arrayPos][relPos].chained= tBr->chained;
+                               putRel(tBr);
+                           }
+                       }else {
+                           relation *prev = &firstOutgoingEnt->outgoingTable[reltypeOrd->arrayPos][relPos];
+                           relation *act = firstOutgoingEnt->outgoingTable[reltypeOrd->arrayPos][relPos].chained;
+                           for (; act != NULL; act = act->chained) {
+                               if (strcmp(act->entName, entityTable[entityPos].name) == 0) {
+                                   prev->chained = act->chained;
+                                   putRel(act);
+                                   break;
+                               }
+                               prev = act;
+                           }
+                       }
+                       //elimino le relazioni concatenate
+                       relation *iterator = entityTable[entityPos].incomingTable[reltypeOrd->arrayPos][hashRel].chained;
+                       while (iterator != NULL) {
+                           entity *outgoingEnt = findEnt(iterator->entName);
+                           unsigned int relPosIt = hashRelPos(outgoingEnt->name, entityTable[entityPos].name, relTypeTable[reltypeOrd->arrayPos].name);
+
+                           if(strcmp(outgoingEnt->outgoingTable[reltypeOrd->arrayPos][relPosIt].entName, entityTable[entityPos].name)==0){
+                               if(outgoingEnt->outgoingTable[reltypeOrd->arrayPos][relPosIt].chained==NULL){
+                                   outgoingEnt->outgoingTable[reltypeOrd->arrayPos][relPosIt].entName[0]='\0';
+                               }else{
+                                   relation *tBr = outgoingEnt->outgoingTable[reltypeOrd->arrayPos][relPosIt].chained;
+                                   strcpy(outgoingEnt->outgoingTable[reltypeOrd->arrayPos][relPosIt].entName, tBr->entName);
+                                   outgoingEnt->outgoingTable[reltypeOrd->arrayPos][relPosIt].chained= tBr->chained;
+                                   putRel(tBr);
+                               }
+                           }else {
+                               relation *prev = &outgoingEnt->outgoingTable[reltypeOrd->arrayPos][relPosIt];
+                               relation *act = outgoingEnt->outgoingTable[reltypeOrd->arrayPos][relPosIt].chained;
+                               for (; act != NULL; act = act->chained) {
+                                   if (strcmp(act->entName, entityTable[entityPos].name) == 0) {
+                                       prev->chained = act->chained;
+                                       putRel(act);
+                                       break;
+                                   }
+                                   prev = act;
+                               }
+                           }
+                           iterator = iterator->chained;
+                       }
+                   }
+               }
+               free(entityTable[entityPos].incomingTable[reltypeOrd->arrayPos]);
+               entityTable[entityPos].incomingTable[reltypeOrd->arrayPos]=NULL;
+           }
+       }
+       if(entityTable[entityPos].chained==NULL){
+           entityTable[entityPos].name[0]='\0';
+       }else{
+           entity *tbd = entityTable[entityPos].chained;
+           strcpy(entityTable[entityPos].name, tbd->name);
+           entityTable[entityPos].chained=tbd->chained;
+           for(int i=0; i<RELTYPENUMBER ; i++){
+               if(relTypeTable[i].max>0){
+                   if(tbd->occ[i]==relTypeTable[i].max){
+                       relTypeTable[i].needCorrection=1;
+                   }
+               }
+               entityTable[entityPos].incomingTable[i]=tbd->incomingTable[i];
+               entityTable[entityPos].outgoingTable[i]=tbd->outgoingTable[i];
+               entityTable[entityPos].occ[i]=tbd->occ[i];
+           }
+           putEnt(tbd);
+       }
+   }else{//se è concatenato sotto
+       entity *iteratorQue = entityTable[entityPos].chained;
+       entity *prevQue = &entityTable[entityPos];
+       for(; iteratorQue!=NULL; iteratorQue=iteratorQue->chained){
+           if(strcmp(iteratorQue->name, name)==0){
+               break;
+               printf("\nstai provando a cancellare %s\n", name);
+           }
+           prevQue=iteratorQue;
+       }
+       if(iteratorQue==NULL){ //se sono uscito dall'if perchè non ho trovato l'entità, esco
+           return;
+       }
+       /*
+        for(relTOrder *reltypeOrd = orderQueue; reltypeOrd!=NULL; reltypeOrd=reltypeOrd->chained){
+           if(entityTable[entityPos].outgoingTable[reltypeOrd->arrayPos]!=NULL) {  //cancello le relazioni uscenti
+               for (int hashRel = 0; hashRel < RELBLOCKLENGTH; hashRel++) {
+                   if (entityTable[entityPos].outgoingTable[reltypeOrd->arrayPos][hashRel].entName[0] != '\0') {
+                       //elimino la prima
+                       entity *firstIncomingEnt = findEnt(entityTable[entityPos].outgoingTable[reltypeOrd->arrayPos][hashRel].entName);
+
+                       if (strcmp(firstIncomingEnt->incomingTable[reltypeOrd->arrayPos][hashRel].entName,
+                                  entityTable[entityPos].name) == 0) {  //se la relazione da eliminare è all'inizio
+                           if (firstIncomingEnt->incomingTable[reltypeOrd->arrayPos][hashRel].chained == NULL) {
+                               firstIncomingEnt->incomingTable[reltypeOrd->arrayPos][hashRel].entName[0] = '\0';
+                           } else {
+                               relation *tBr = firstIncomingEnt->incomingTable[reltypeOrd->arrayPos][hashRel].chained;
+                               strcpy(firstIncomingEnt->incomingTable[reltypeOrd->arrayPos][hashRel].entName,
+                                      tBr->entName);
+                               firstIncomingEnt->incomingTable[reltypeOrd->arrayPos][hashRel].chained = tBr->chained;
+                               putRel(tBr);
+                           }
+                       } else {
+                           relation *prev = &firstIncomingEnt->incomingTable[reltypeOrd->arrayPos][hashRel];
+                           relation *act = firstIncomingEnt->incomingTable[reltypeOrd->arrayPos][hashRel].chained;
                            for (; act != NULL; act = act->chained) {
                                if (strcmp(act->entName, entityTable[entityPos].name) == 0) {
                                    prev->chained = act->chained;
@@ -603,23 +813,23 @@ void delEnt(char *name){
                        }
                        //TODO gestione dei massimi
                        //elimino le relazioni concatenate
-                       relation *iterator = entityTable[entityPos].outgoingTable[reltypeOrd->arrayPos][hashRelPos].chained;
+                       relation *iterator = entityTable[entityPos].outgoingTable[reltypeOrd->arrayPos][hashRel].chained;
                        while (iterator != NULL) {
                            entity *incomingEnt = findEnt(iterator->entName);
-                           if (strcmp(incomingEnt->incomingTable[reltypeOrd->arrayPos][hashRelPos].entName,
+                           if (strcmp(incomingEnt->incomingTable[reltypeOrd->arrayPos][hashRel].entName,
                                       entityTable[entityPos].name) == 0) { //se la relazione da eliminare è all'inizio
-                               if (incomingEnt->incomingTable[reltypeOrd->arrayPos][hashRelPos].chained == NULL) {
-                                   incomingEnt->incomingTable[reltypeOrd->arrayPos][hashRelPos].entName[0] = '\0';
+                               if (incomingEnt->incomingTable[reltypeOrd->arrayPos][hashRel].chained == NULL) {
+                                   incomingEnt->incomingTable[reltypeOrd->arrayPos][hashRel].entName[0] = '\0';
                                } else {
-                                   relation *tBr = incomingEnt->incomingTable[reltypeOrd->arrayPos][hashRelPos].chained;
-                                   strcpy(incomingEnt->incomingTable[reltypeOrd->arrayPos][hashRelPos].entName,
+                                   relation *tBr = incomingEnt->incomingTable[reltypeOrd->arrayPos][hashRel].chained;
+                                   strcpy(incomingEnt->incomingTable[reltypeOrd->arrayPos][hashRel].entName,
                                           tBr->entName);
-                                   incomingEnt->incomingTable[reltypeOrd->arrayPos][hashRelPos].chained = tBr->chained;
+                                   incomingEnt->incomingTable[reltypeOrd->arrayPos][hashRel].chained = tBr->chained;
                                    putRel(tBr);
                                }
                            } else {
-                               relation *prev = &incomingEnt->incomingTable[reltypeOrd->arrayPos][hashRelPos];
-                               relation *act = incomingEnt->incomingTable[reltypeOrd->arrayPos][hashRelPos].chained;
+                               relation *prev = &incomingEnt->incomingTable[reltypeOrd->arrayPos][hashRel];
+                               relation *act = incomingEnt->incomingTable[reltypeOrd->arrayPos][hashRel].chained;
                                for (; act != NULL; act = act->chained) {
                                    if (strcmp(act->entName, entityTable[entityPos].name) == 0) {
                                        prev->chained = act->chained;
@@ -638,14 +848,68 @@ void delEnt(char *name){
                entityTable[entityPos].outgoingTable[reltypeOrd->arrayPos]=NULL;
            }//finito con le rel uscenti
            if(entityTable[entityPos].incomingTable[reltypeOrd->arrayPos]!=NULL) {  //cancello le relazioni entranti
-               for (int hashRelPos = 0; hashRelPos < RELBLOCKLENGTH; hashRelPos++) {
+               for (int hashRel = 0; hashRel < RELBLOCKLENGTH; hashRel++) {
+                   if(entityTable[entityPos].incomingTable[reltypeOrd->arrayPos][hashRel].entName[0]!='\0'){
+                       entity *firstOutgoingEnt = findEnt(entityTable[entityPos].incomingTable[reltypeOrd->arrayPos][hashRel].entName);
+                       unsigned int relPos = hashRelPos(entityTable[entityPos].incomingTable[reltypeOrd->arrayPos][hashRel].entName, entityTable[entityPos].name, relTypeTable[reltypeOrd->arrayPos].name);
+                       if(strcmp(firstOutgoingEnt->outgoingTable[reltypeOrd->arrayPos][relPos].entName, entityTable[entityPos].name)==0){
+                           if(firstOutgoingEnt->outgoingTable[reltypeOrd->arrayPos][relPos].chained==NULL){
+                               firstOutgoingEnt->outgoingTable[reltypeOrd->arrayPos][relPos].entName[0]='\0';
+                           }else{
+                               relation *tBr = firstOutgoingEnt->outgoingTable[reltypeOrd->arrayPos][relPos].chained;
+                               strcpy(firstOutgoingEnt->outgoingTable[reltypeOrd->arrayPos][relPos].entName, tBr->entName);
+                               firstOutgoingEnt->outgoingTable[reltypeOrd->arrayPos][relPos].chained= tBr->chained;
+                               putRel(tBr);
+                           }
+                       }else {
+                           relation *prev = &firstOutgoingEnt->outgoingTable[reltypeOrd->arrayPos][relPos];
+                           relation *act = firstOutgoingEnt->outgoingTable[reltypeOrd->arrayPos][relPos].chained;
+                           for (; act != NULL; act = act->chained) {
+                               if (strcmp(act->entName, entityTable[entityPos].name) == 0) {
+                                   prev->chained = act->chained;
+                                   putRel(act);
+                                   break;
+                               }
+                               prev = act;
+                           }
+                       }
+                       //elimino le relazioni concatenate
+                       relation *iterator = entityTable[entityPos].incomingTable[reltypeOrd->arrayPos][hashRel].chained;
+                       while (iterator != NULL) {
+                           entity *outgoingEnt = findEnt(iterator->entName);
+                           unsigned int relPosIt = hashRelPos(outgoingEnt->name, entityTable[entityPos].name, relTypeTable[reltypeOrd->arrayPos].name);
 
+                           if(strcmp(outgoingEnt->outgoingTable[reltypeOrd->arrayPos][relPosIt].entName, entityTable[entityPos].name)==0){
+                               if(outgoingEnt->outgoingTable[reltypeOrd->arrayPos][relPosIt].chained==NULL){
+                                   outgoingEnt->outgoingTable[reltypeOrd->arrayPos][relPosIt].entName[0]='\0';
+                               }else{
+                                   relation *tBr = outgoingEnt->outgoingTable[reltypeOrd->arrayPos][relPosIt].chained;
+                                   strcpy(outgoingEnt->outgoingTable[reltypeOrd->arrayPos][relPosIt].entName, tBr->entName);
+                                   outgoingEnt->outgoingTable[reltypeOrd->arrayPos][relPosIt].chained= tBr->chained;
+                                   putRel(tBr);
+                               }
+                           }else {
+                               relation *prev = &outgoingEnt->outgoingTable[reltypeOrd->arrayPos][relPosIt];
+                               relation *act = outgoingEnt->outgoingTable[reltypeOrd->arrayPos][relPosIt].chained;
+                               for (; act != NULL; act = act->chained) {
+                                   if (strcmp(act->entName, entityTable[entityPos].name) == 0) {
+                                       prev->chained = act->chained;
+                                       putRel(act);
+                                       break;
+                                   }
+                                   prev = act;
+                               }
+                           }
+                           iterator = iterator->chained;
+                           //TODO gestione dei massimi
+                       }
+                   }
                }
+               free(entityTable[entityPos].incomingTable[reltypeOrd->arrayPos]);
+               entityTable[entityPos].incomingTable[reltypeOrd->arrayPos]=NULL;
            }
        }
-
-   }else{//se è concatenato sotto
-
+        */
    }
 }
 
