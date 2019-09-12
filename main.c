@@ -56,7 +56,7 @@ unsigned int relTypePos(char *name);
 entity *findEnt(char *name);
 
 int main() {
-    freopen("/home/alessandro/Scaricati/batch2.1.in","r",stdin);
+   //freopen("/home/alessandro/Scaricati/batch2.1.in","r",stdin);
     char cmd[7];
     scanf("%s", cmd);
     while(strcmp(cmd, "end")!=0){
@@ -482,15 +482,15 @@ void delRel(char *from, char *to, char *relName){
                         putRel(toBeDel);
                     }
                 }else{
-                    relation *iterator = toPtr->incomingTable[typePos][relPos].chained;
-                    relation *prev = &toPtr->incomingTable[typePos][relPos];
-                    for(;iterator!=NULL; iterator=iterator->chained){
-                        if(strcmp(iterator->entName, to)==0){
-                            prev->chained=iterator->chained;
-                            putRel(iterator);
+                    relation *iteratorEnt = toPtr->incomingTable[typePos][relPos].chained;
+                    relation *prevEnt= &toPtr->incomingTable[typePos][relPos];
+                    for(;iteratorEnt!=NULL; iteratorEnt=iteratorEnt->chained){
+                        if(strcmp(iteratorEnt->entName, to)==0){
+                            prevEnt->chained=iteratorEnt->chained;
+                            putRel(iteratorEnt);
                             break;
                         }
-                        prev=iterator;
+                        prevEnt=iteratorEnt;
                     }
                 }
                 //verifico i massimi
@@ -504,16 +504,16 @@ void delRel(char *from, char *to, char *relName){
                                 free(relTypeTable[typePos].pointerToList);
                                 relTypeTable[typePos].pointerToList = temp;
                             } else {
-                                maxEntity *iterator = relTypeTable[typePos].pointerToList->chained;
-                                maxEntity *prev = relTypeTable[typePos].pointerToList;
-                                for (; iterator != NULL; iterator = iterator->chained) {
-                                    if (iterator->ptrTo == toPtr) {
-                                        maxEntity *temp = iterator->chained;
-                                        free(iterator);
-                                        prev->chained = temp;
+                                maxEntity *iteratorMax = relTypeTable[typePos].pointerToList->chained;
+                                maxEntity *prevMax = relTypeTable[typePos].pointerToList;
+                                for (; iteratorMax != NULL; iteratorMax = iteratorMax->chained) {
+                                    if (iteratorMax->ptrTo == toPtr) {
+                                        maxEntity *temp = iteratorMax->chained;
+                                        free(iteratorMax);
+                                        prevMax->chained = temp;
                                         break;
                                     }
-                                    prev = iterator;
+                                    prevMax = iteratorMax;
                                 }
                             }
                         }
