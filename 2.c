@@ -63,7 +63,7 @@ unsigned int relTypePos(char *name);
 entity *findEnt(char *name);
 
 int main() {
-    freopen("/home/alessandro/Scaricati/batch2.1.in","r",stdin);
+   // freopen("/home/alessandro/Scaricati/batch2.1.in","r",stdin);
     char cmd[7];
     scanf("%s", cmd);
     while(strcmp(cmd, "end")!=0){
@@ -516,34 +516,32 @@ void delEnt(char *name){
     for(relTOrder *relTord = orderQueue; relTord!=NULL; relTord=relTord->chained){
         //verifico se entPtr è un massimo
         if(relTypeTable[relTord->arrayPos].needCorrection==0) {
-            if (entPtr->occ[relTord->arrayPos] == relTypeTable[relTord->arrayPos].max) {
-                if (relTypeTable[relTord->arrayPos].pointerToList->chained == NULL) {
-                    relTypeTable[relTord->arrayPos].needCorrection = 1;
-                } else {
-                    if (relTypeTable[relTord->arrayPos].pointerToList->ptrTo == entPtr) {
-                        maxEntity *temp = relTypeTable[relTord->arrayPos].pointerToList->chained;
-                        free(relTypeTable[relTord->arrayPos].pointerToList);
-                        relTypeTable[relTord->arrayPos].pointerToList = temp;
+            if(relTypeTable[relTord->arrayPos].max>0) {
+                if (entPtr->occ[relTord->arrayPos] == relTypeTable[relTord->arrayPos].max) {
+                    if (relTypeTable[relTord->arrayPos].pointerToList->chained == NULL) {
+                        relTypeTable[relTord->arrayPos].needCorrection = 1;
                     } else {
-                        maxEntity *iterator = relTypeTable[relTord->arrayPos].pointerToList->chained;
-                        maxEntity *prevMax = relTypeTable[relTord->arrayPos].pointerToList;
-                        for (; iterator != NULL; iterator = iterator->chained) {
-                            if (iterator->ptrTo == entPtr) {
-                                maxEntity *temp = iterator->chained;
-                                free(iterator);
-                                prevMax->chained = temp;
-                                break;
+                        if (relTypeTable[relTord->arrayPos].pointerToList->ptrTo == entPtr) {
+                            maxEntity *temp = relTypeTable[relTord->arrayPos].pointerToList->chained;
+                            free(relTypeTable[relTord->arrayPos].pointerToList);
+                            relTypeTable[relTord->arrayPos].pointerToList = temp;
+                        } else {
+                            maxEntity *iterator = relTypeTable[relTord->arrayPos].pointerToList->chained;
+                            maxEntity *prevMax = relTypeTable[relTord->arrayPos].pointerToList;
+                            for (; iterator != NULL; iterator = iterator->chained) {
+                                if (iterator->ptrTo == entPtr) {
+                                    maxEntity *temp = iterator->chained;
+                                    free(iterator);
+                                    prevMax->chained = temp;
+                                    break;
+                                }
+                                prevMax = iterator;
                             }
-                            prevMax = iterator;
                         }
                     }
                 }
             }
         }
-
-
-
-
         //Cancello le relazioni uscenti da entPtr:
         if(entPtr->outgoingTable[relTord->arrayPos]!=NULL){
             for(int relPos = 0; relPos < RELBLOCKLENGTH; relPos++){
