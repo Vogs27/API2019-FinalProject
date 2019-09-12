@@ -56,7 +56,7 @@ unsigned int relTypePos(char *name);
 entity *findEnt(char *name);
 
 int main() {
-   freopen("/home/alessandro/Scaricati/batch2.1.in","r",stdin);
+   //freopen("/home/alessandro/Scaricati/batch2.1.in","r",stdin);
     char cmd[7];
     scanf("%s", cmd);
     while(strcmp(cmd, "end")!=0){
@@ -571,14 +571,15 @@ void delEnt(char *name){
    }
    if(strcmp(entityTable[entityPos].name, name)==0){ //se è nella tabella
        for(relTOrder *reltypeOrd = orderQueue; reltypeOrd!=NULL; reltypeOrd=reltypeOrd->chained){
+           if(entityTable[entityPos].occ[reltypeOrd->arrayPos]==relTypeTable[reltypeOrd->arrayPos].max){
+               relTypeTable[reltypeOrd->arrayPos].needCorrection=1;
+           }
            if(entityTable[entityPos].outgoingTable[reltypeOrd->arrayPos]!=NULL) {  //cancello le relazioni uscenti
                for (int hashRel = 0; hashRel < RELBLOCKLENGTH; hashRel++) {
                    if (entityTable[entityPos].outgoingTable[reltypeOrd->arrayPos][hashRel].entName[0] != '\0') {//se esiste una relazione uscente da eliminare
                        //elimino la prima
                        entity *firstIncomingEnt = findEnt(entityTable[entityPos].outgoingTable[reltypeOrd->arrayPos][hashRel].entName);
-
-                       if (strcmp(firstIncomingEnt->incomingTable[reltypeOrd->arrayPos][hashRel].entName,
-                                  entityTable[entityPos].name) == 0) {  //se la relazione da eliminare è all'inizio
+                       if (strcmp(firstIncomingEnt->incomingTable[reltypeOrd->arrayPos][hashRel].entName, entityTable[entityPos].name) == 0) {  //se la relazione da eliminare è all'inizio
                            if (firstIncomingEnt->incomingTable[reltypeOrd->arrayPos][hashRel].chained == NULL) {
                                firstIncomingEnt->incomingTable[reltypeOrd->arrayPos][hashRel].entName[0] = '\0';
                            } else {
@@ -627,6 +628,7 @@ void delEnt(char *name){
                                }
                            }
                        }
+                       firstIncomingEnt->occ[reltypeOrd->arrayPos]--;
                        //elimino le relazioni concatenate
                        relation *iterator = entityTable[entityPos].outgoingTable[reltypeOrd->arrayPos][hashRel].chained;
                        while (iterator != NULL) {
@@ -682,6 +684,7 @@ void delEnt(char *name){
                                    }
                                }
                            }
+                           firstIncomingEnt->occ[reltypeOrd->arrayPos]--;
                        }
                    }
                }
