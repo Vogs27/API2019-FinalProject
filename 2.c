@@ -6,9 +6,9 @@
 #include <stdlib.h>
 #include <string.h>
 
-#define NAMELENGTH 35
+#define NAMELENGTH 50
 #define RELTYPENUMBER 50
-#define ENTITYTABLELENGTH 500
+#define ENTITYTABLELENGTH 487
 #define RELBLOCKLENGTH 500
 
 typedef struct relatedEntity{  //Una relazione
@@ -63,7 +63,10 @@ unsigned int relTypePos(char *name);
 entity *findEnt(char *name);
 
 int main() {
-   // freopen("/home/alessandro/Scaricati/batch2.1.in","r",stdin);
+   //freopen("/home/alessandro/CLionProjects/APIbis/test_completi_10000righe/i/2019_08_10_19_22_57_673.txt","r",stdin);
+   for(int i=0; i<ENTITYTABLELENGTH; i++){
+       entityTable[i]=NULL;
+   }
     char cmd[7];
     scanf("%s", cmd);
     while(strcmp(cmd, "end")!=0){
@@ -111,6 +114,7 @@ entity *getEnt(){
     entity *toReturn = headOfEntRecycler;
     toReturn->chained=NULL;
     toReturn->name[0]='\0';
+
     headOfEntRecycler = headOfEntRecycler->chained;
     return toReturn;
 }
@@ -144,13 +148,14 @@ unsigned int hashEntity(char *name){
     {
         hash = 31*hash + name[i];
     }
+    int c;
     return hash % ENTITYTABLELENGTH;
 
 }
 
 unsigned int hashRelType(char *name){
     unsigned int hash = 0;
-    int i;
+   int i;
     for (i = 0 ; name[i] != '\0' ; i++)
     {
         hash = 31*hash + name[i];
@@ -176,7 +181,7 @@ entity *findEnt(char *name){
 }
 
 unsigned int hashRelPos(char *from, char *to, char *relName){
-    char seed[106];
+    char seed[NAMELENGTH*3+1];
     strcpy(seed, from);
     strcat(seed, to);
     strcat(seed, relName);
@@ -324,8 +329,9 @@ void addRel(char *from, char *to, char *relName){
         for(int i=0; i<RELBLOCKLENGTH; i++){
             relationTable[i]=NULL;
         }
-        relationTable[relPos]=malloc(sizeof(relatedEntity));
+        relationTable[relPos]=getRel();
         strcpy(relationTable[relPos]->entName,to);
+        relationTable[relPos]->chained=NULL; //TODO
     }
     else{
         relatedEntity *iterator = fromPtr->outgoingTable[typePos][relPos];
@@ -346,8 +352,9 @@ void addRel(char *from, char *to, char *relName){
         for(int i=0; i<RELBLOCKLENGTH; i++){
             relationTable[i]=NULL;
         }
-        relationTable[relPos]=malloc(sizeof(relatedEntity));
+        relationTable[relPos]=getRel();
         strcpy(relationTable[relPos]->entName,from);
+        relationTable[relPos]->chained=NULL;
     }
     else{
         relatedEntity *head = toPtr->incomingTable[typePos][relPos];
@@ -447,11 +454,11 @@ void delRel(char *from, char *to, char *relName){
     }
     if(prev==NULL){ //se sono ancora all'inizio
         prev=out->chained;
-        free(fromPtr->outgoingTable[typePos][relPos]);
+        putRel(fromPtr->outgoingTable[typePos][relPos]);
         fromPtr->outgoingTable[typePos][relPos]=prev;
     }else{
         prev->chained=out->chained;
-        free(out);
+        putRel(out);
     }
     //cancello la relazione entrante
     relatedEntity *in = toPtr->incomingTable[typePos][relPos];
@@ -465,11 +472,11 @@ void delRel(char *from, char *to, char *relName){
 
     if(previn==NULL){ //se sono ancora all'inizio
         previn=in->chained;
-        free(toPtr->incomingTable[typePos][relPos]);
+        putRel(toPtr->incomingTable[typePos][relPos]);
         toPtr->incomingTable[typePos][relPos]=previn;
     }else{
         previn->chained=in->chained;
-        free(in);
+        putRel(in);
     }
     //aggiorno i massimi
     if(relTypeTable[typePos].needCorrection==0) {
@@ -558,11 +565,11 @@ void delEnt(char *name){
                     }
                     if(previn==NULL){ //se sono ancora all'inizio
                         previn=in->chained;
-                        free(toPtr->incomingTable[relTord->arrayPos][relPos]);
+                        putRel(toPtr->incomingTable[relTord->arrayPos][relPos]);
                         toPtr->incomingTable[relTord->arrayPos][relPos]=previn;
                     }else{
                         previn->chained=in->chained;
-                        free(in);
+                        putRel(in);
                     }
                     //aggiorno i massimi
                     if(relTypeTable[relTord->arrayPos].needCorrection==0) {
@@ -591,11 +598,14 @@ void delEnt(char *name){
                         }
                     }
                     toPtr->occ[relTord->arrayPos]--;
-                    free(entPtr->outgoingTable[relTord->arrayPos][relPos]);
+                 //   free(entPtr->outgoingTable[relTord->arrayPos][relPos]);
                     entPtr->outgoingTable[relTord->arrayPos][relPos]=next;
                 }
             }
+
         }
+
+
         //cancello le relazioni entranti
         if(entPtr->incomingTable[relTord->arrayPos]!=NULL){
             for(int relPos = 0; relPos<RELBLOCKLENGTH; relPos++){
@@ -612,27 +622,32 @@ void delEnt(char *name){
                     }
                     if(prevout==NULL){
                         prevout=out->chained;
-                        free(fromPtr->outgoingTable[relTord->arrayPos][relPos]);
+                        putRel(fromPtr->outgoingTable[relTord->arrayPos][relPos]);
                         fromPtr->outgoingTable[relTord->arrayPos][relPos] = prevout;
                     }else{
                         prevout->chained=out->chained;
-                        free(out);
+                        putRel(out);
+                        //putRel(out);
                     }
-                    free(entPtr->incomingTable[relTord->arrayPos][relPos]);
+                  //  free(entPtr->incomingTable[relTord->arrayPos][relPos]);
                     entPtr->incomingTable[relTord->arrayPos][relPos]=next;
                 }
             }
             entPtr->occ[relTord->arrayPos]=0;
         }
+       /* free(entPtr->outgoingTable[relTord->arrayPos]);
+        free(entPtr->incomingTable[relTord->arrayPos]);
+        entPtr->outgoingTable[relTord->arrayPos]=NULL;
+        entPtr->incomingTable[relTord->arrayPos]=NULL;*/
     }
     //cancello entPtr
     if(prevEnt==NULL){ //se è il puntatore iniziale
         prevEnt=entPtr->chained;
-        free(entPtr);
+        putEnt(entPtr);
         entityTable[hash]=prevEnt;
     }else{
         prevEnt->chained=entPtr->chained;
-        free(entPtr);
+        putEnt(entPtr);
     }
 
 
