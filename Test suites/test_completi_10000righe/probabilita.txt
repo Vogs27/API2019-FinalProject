@@ -1,0 +1,10 @@
+            if (choice >= 0 && choice <= 20)
+                return GeneraAddEnt();
+            if (choice > 20 && choice <= 60)
+                return GeneraDelEnt();
+            if (choice > 60 && choice <= 85)
+                return GeneraAddRel();
+            if (choice > 85 && choice <= 95)
+                return GeneraDelRel();
+            if (choice > 95 && choice <= 100)
+                return "report";

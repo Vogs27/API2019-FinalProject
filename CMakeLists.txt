@@ -3,4 +3,4 @@ project(APIbis C)
 
 set(CMAKE_C_STANDARD 11)
 
-add_executable(APIbis 2.c)
+add_executable(APIbis main.c)
