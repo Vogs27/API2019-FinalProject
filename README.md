@@ -5,4 +5,4 @@ This project is related to algoritmi e principi dell'informatica course.
 For a detailed description of the project and ruels, refer to the [pdf file](https://github.com/Vogs27/API2019-FinalProject/blob/master/ProvaFinale2019.pdf).
 
 ___
-This project is released after the evaluation project (17/09/2019).
+This project is released after its evaluation (17/09/2019).
